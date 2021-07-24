@@ -81,3 +81,58 @@ PE1#show mpls ldp igp sync
         Peer LDP Ident: 4.4.4.4:0
         IGP enabled: ISIS test
 ```
+
+
+
+
+<font size="30">LDP session Protection </font>
+
+What normally happens when a LDP peer goes down is that the labels associated with the peer are removed from the router. 
+
+However, consider the scenario where the LDP peer goes down for a short period of time and comes back up within a second. We would need to relearn all the ldp label bindings from the peer again which would add to the convergence time. 
+
+Instead, what we could do is to build an LDP targeted TCP session to the peer’s loopback IP. This targeted session uses a different or alternate path to reach the peer’s loopback and if successful, it means that the peer is still alive and we need not flush out the labels. 
+
+Let us enable on all routers using the command - 
+```
+PE1(config)#mpls ldp session protection 
+
+IOS XR - 
+
+RP/0/0/CPU0:PE2(config)#mpls ldp 
+RP/0/0/CPU0:PE2(config-ldp)#session protection 
+RP/0/0/CPU0:PE2(config-ldp)#commit
+Sat Jul 24 19:58:00.930 UTC
+```
+Let us now shut down the link between PE1 and P4
+```
+PE1(config)#int g2
+PE1(config-if)#shutdown 
+```
+The targeted hello to 4.4.4.4 becomes active
+```
+PE1#show mpls ldp neighbor 
+   ...    
+Peer LDP Ident: 4.4.4.4:0; Local LDP Ident 1.1.1.1:0
+        TCP connection: 4.4.4.4.16364 - 1.1.1.1.646
+        State: Oper; Msgs sent/rcvd: 17/14; Downstream
+        Up time: 00:00:48
+        LDP discovery sources:
+          Targeted Hello 1.1.1.1 -> 4.4.4.4, active, passive
+        Addresses bound to peer LDP Ident:
+          14.1.1.4        24.1.1.4        4.4.4.4   
+```
+We also see that the labels from the peer 4.4.4.4 are retained
+```
+PE1#show mpls ldp bindings 
+  lib entry: 1.1.1.1/32, rev 2
+        local binding:  label: imp-null
+        remote binding: lsr: 3.3.3.3:0, label: 20
+        remote binding: lsr: 4.4.4.4:0, label: 16
+  lib entry: 2.2.2.2/32, rev 18
+        local binding:  label: 20
+        remote binding: lsr: 3.3.3.3:0, label: 19
+        remote binding: lsr: 4.4.4.4:0, label: 17
+```
+
+These are some of the useful tweaks that we can do to LDP to make our network resillient during events of failure. 
